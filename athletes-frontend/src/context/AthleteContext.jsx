@@ -1,73 +1,75 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
 import {
-  getAthletes,
-  createAthlete,
-  updateAthlete,
-  deleteAthlete,
-} from "../api/athleteService";
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useCallback,
+} from "react";
 
 const AthleteContext = createContext();
-
 // eslint-disable-next-line react-refresh/only-export-components
 export const useAthletes = () => useContext(AthleteContext);
 
-export const AthleteProvider = ({ children }) => {
-  const [athletes, setAthletes] = useState([]);
-  const [loading, setLoading] = useState(true);
+const API_URL = "http://localhost:3001/athletes";
 
-  const fetchAthletes = async () => {
+export function AthleteProvider({ children }) {
+  const [athletes, setAthletes] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const fetchAll = useCallback(async () => {
+    setLoading(true);
     try {
-      const response = await getAthletes();
-      setAthletes(response.data.athletes || response.data);
-    } catch (error) {
-      console.error("Failed to fetch athletes:", error);
+      const res = await fetch(API_URL);
+      const data = await res.json();
+      setAthletes(data.athletes || []);
+    } catch (err) {
+      console.error(err);
+      setError("Athlete data loading failed");
     } finally {
       setLoading(false);
     }
-  };
-
-  const addAthlete = async (athlete) => {
-    try {
-      await createAthlete(athlete);
-      fetchAthletes();
-    } catch (error) {
-      console.error("Failed to create athlete:", error);
-    }
-  };
-
-  const editAthlete = async (id, updatedData) => {
-    try {
-      await updateAthlete(id, updatedData);
-      fetchAthletes();
-    } catch (error) {
-      console.error("Failed to update athlete:", error);
-    }
-  };
-
-  const removeAthlete = async (id) => {
-    try {
-      await deleteAthlete(id);
-      setAthletes((prev) => prev.filter((a) => a.id !== id));
-    } catch (error) {
-      console.error("Failed to delete athlete:", error);
-    }
-  };
+  }, []);
 
   useEffect(() => {
-    fetchAthletes();
-  }, []);
+    fetchAll();
+  }, [fetchAll]);
+
+  const createAthlete = async (athlete) => {
+    await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(athlete),
+    });
+    fetchAll();
+  };
+
+  const updateAthlete = async (id, athlete) => {
+    await fetch(`${API_URL}/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(athlete),
+    });
+    fetchAll();
+  };
+
+  const deleteAthlete = async (id) => {
+    await fetch(`${API_URL}/${id}`, { method: "DELETE" });
+    setAthletes((prev) => prev.filter((a) => a.id !== id));
+  };
 
   return (
     <AthleteContext.Provider
       value={{
         athletes,
         loading,
-        addAthlete,
-        editAthlete,
-        removeAthlete,
+        error,
+        createAthlete,
+        updateAthlete,
+        deleteAthlete,
       }}
     >
       {children}
     </AthleteContext.Provider>
   );
-};
+}
