@@ -74,7 +74,7 @@ const AthleteEditModal = ({ show, onHide, athlete }) => {
             />
           </Form.Group>
           <Form.Group className="mb-2">
-            <Form.Label>Syntymäpäivä</Form.Label>
+            <Form.Label>Syntymävuosi</Form.Label>
             <Form.Control
               type="date"
               name="birth_date"
