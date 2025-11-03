@@ -1,20 +1,49 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
+import { Button, Card, Spinner, Row, Col } from "react-bootstrap";
 import { useAthletes } from "../context/AthleteContext";
+import AthleteEditModal from "./AthleteEditModal";
+import { toast } from "react-toastify";
 
-export default function AthleteList() {
-  const { athletes, deleteAthlete, updateAthlete, loading } = useAthletes();
-  const [editId, setEditId] = useState(null);
-  const [form, setForm] = useState({});
+const AthleteList = () => {
+  const { athletes, loading, deleteAthlete, fetchAthletes } = useAthletes();
   const [search, setSearch] = useState("");
+  const [showModal, setShowModal] = useState(false);
+  const [selectedAthlete, setSelectedAthlete] = useState(null);
 
+  // 🔄 Lataa urheilijat heti käynnistyksessä
   useEffect(() => {
-    if (editId) {
-      const athlete = athletes.find((a) => a.id === editId);
-      setForm(athlete || {});
-    }
-  }, [editId, athletes]);
+    fetchAthletes();
+  }, [fetchAthletes]);
 
-  // Suodatus hakusanan perusteella (etunimi, sukunimi, laji)
+  // ✏️ Avaa muokkausikkuna
+  const openEditModal = (athlete) => {
+    setSelectedAthlete(athlete);
+    setShowModal(true);
+  };
+
+  // ❌ Sulje modal
+  const closeEditModal = () => {
+    setShowModal(false);
+    setSelectedAthlete(null);
+  };
+
+  // 🗑️ Poista urheilija + ilmoitus
+  const handleDelete = async (id) => {
+    if (window.confirm("Haluatko varmasti poistaa tämän urheilijan?")) {
+      try {
+        await deleteAthlete(id);
+        await fetchAthletes(); // päivitä lista heti
+        toast.success("Urheilija poistettu onnistuneesti 🗑️");
+      } catch (error) {
+        console.error(error);
+        toast.error(
+          "Virhe poistettaessa urheilijaa. Tarkista yhteys palvelimeen."
+        );
+      }
+    }
+  };
+
+  // 🔍 Suodatus
   const filteredAthletes = athletes.filter(
     (a) =>
       a.first_name.toLowerCase().includes(search.toLowerCase()) ||
@@ -22,189 +51,142 @@ export default function AthleteList() {
       a.sport.toLowerCase().includes(search.toLowerCase())
   );
 
-  if (loading) return <p>Ladataan...</p>;
-  if (!athletes.length)
-    return <p className="text-muted">Ei urheilijoita tietokannassa.</p>;
-
-  const startEdit = (athlete) => {
-    setEditId(athlete.id);
-    setForm(athlete);
-  };
-
-  const cancelEdit = () => {
-    setEditId(null);
-    setForm({});
-  };
-
-  const saveEdit = async () => {
-    await updateAthlete(editId, form);
-    setEditId(null);
-    setForm({});
-  };
-
-  const onChange = (e) => {
-    const { name, value } = e.target;
-    setForm({
-      ...form,
-      [name]: name === "weight" ? parseFloat(value) || "" : value,
-    });
-  };
+  if (loading) {
+    return (
+      <div className="text-center mt-5">
+        <Spinner animation="border" variant="primary" />
+        <p>Ladataan urheilijoita...</p>
+      </div>
+    );
+  }
 
   return (
-    <>
-      {/* Hakukenttä */}
-      <div className="mb-4 text-end">
+    <div>
+      {/* 🔍 Hakukenttä */}
+      <div className="mb-4">
         <input
           type="text"
-          placeholder="Hae urheilijaa..."
-          className="form-control w-50 d-inline"
+          placeholder="Hae urheilijaa nimellä tai lajilla..."
+          className="form-control"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
       </div>
 
-      <div className="row g-4">
-        {filteredAthletes.map((a) => (
-          <div className="col-md-6 col-lg-4" key={a.id}>
-            <div className="card h-100 shadow-sm">
-              {a.image_url && (
-                <img
-                  src={a.image_url}
-                  alt={a.first_name}
-                  className="card-img-top"
-                  style={{ height: "250px", objectFit: "cover" }}
-                />
-              )}
-              <div className="card-body">
-                {editId === a.id ? (
-                  <>
-                    <input
-                      name="first_name"
-                      value={form.first_name}
-                      onChange={onChange}
-                      className="form-control mb-2"
-                      placeholder="Etunimi"
-                    />
-                    <input
-                      name="last_name"
-                      value={form.last_name}
-                      onChange={onChange}
-                      className="form-control mb-2"
-                      placeholder="Sukunimi"
-                    />
-                    <input
-                      name="nickname"
-                      value={form.nickname || ""}
-                      onChange={onChange}
-                      className="form-control mb-2"
-                      placeholder="Kutsumanimi"
-                    />
-                    <input
-                      type="date"
-                      name="birth_date"
-                      value={
-                        form.birth_date ? form.birth_date.substring(0, 10) : ""
-                      }
-                      onChange={onChange}
-                      className="form-control mb-2"
-                    />
-                    <input
-                      name="sport"
-                      value={form.sport}
-                      onChange={onChange}
-                      className="form-control mb-2"
-                      placeholder="Laji"
-                    />
-                    <input
-                      name="weight"
-                      value={form.weight}
-                      onChange={onChange}
-                      className="form-control mb-2"
-                      placeholder="Paino (kg)"
-                    />
-
-                    <input
-                      name="image_url"
-                      value={form.image_url || ""}
-                      onChange={onChange}
-                      className="form-control mb-2"
-                      placeholder="Kuvan URL"
-                    />
-
-                    <textarea
-                      name="achievements"
-                      value={form.achievements}
-                      onChange={onChange}
-                      className="form-control mb-2"
-                      rows="2"
-                      placeholder="Saavutukset"
-                    />
-                  </>
-                ) : (
-                  <>
-                    <h5 className="card-title mb-1">
-                      {a.first_name} {a.last_name}
-                    </h5>
-                    <p className="text-muted mb-2">{a.sport}</p>
-
-                    {a.nickname && (
-                      <p className="small mb-1">
-                        <strong>Kutsumanimi:</strong> {a.nickname}
-                      </p>
+      {/* 🧱 Urheilijakortit gridissä */}
+      {filteredAthletes.length === 0 ? (
+        <p>Ei urheilijoita löytynyt.</p>
+      ) : (
+        <Row xs={1} md={2} className="g-4">
+          {filteredAthletes.map((a) => (
+            <Col key={a.id}>
+              <Card
+                className="shadow-sm h-100 hover-card"
+                style={{
+                  borderRadius: "15px",
+                  transition: "transform 0.2s, box-shadow 0.2s",
+                }}
+              >
+                <Card.Body>
+                  <div className="d-flex align-items-center mb-3">
+                    {a.image_url ? (
+                      <img
+                        src={a.image_url}
+                        alt={a.nickname}
+                        style={{
+                          width: 90,
+                          height: 90,
+                          objectFit: "cover",
+                          borderRadius: "50%",
+                          marginRight: 15,
+                          border: "2px solid #dee2e6",
+                        }}
+                      />
+                    ) : (
+                      <div
+                        style={{
+                          width: 90,
+                          height: 90,
+                          borderRadius: "50%",
+                          backgroundColor: "#e9ecef",
+                          marginRight: 15,
+                        }}
+                      ></div>
                     )}
+                    <div style={{ flex: 1, textAlign: "left" }}>
+                      <h5 className="mb-1">
+                        {a.first_name} {a.last_name}{" "}
+                        {a.nickname && (
+                          <span className="text-muted">({a.nickname})</span>
+                        )}
+                      </h5>
+                      <p className="mb-1">
+                        <strong>Laji:</strong> {a.sport}
+                      </p>
+                      <p className="mb-1">
+                        <strong>Paino:</strong> {a.weight} kg
+                      </p>
+                      {a.birth_date && (
+                        <p className="mb-1">
+                          <strong>Syntymävuosi:</strong>{" "}
+                          {new Date(a.birth_date).getFullYear()}
+                        </p>
+                      )}
+                    </div>
+                  </div>
 
-                    <p className="small mb-1">
-                      <strong>Syntymäaika:</strong>{" "}
-                      {new Date(a.birth_date).toLocaleDateString("fi-FI")}
-                    </p>
-
-                    <p className="small mb-1">
-                      <strong>Paino:</strong> {a.weight} kg
-                    </p>
-
-                    <p className="small mb-2">
-                      <strong>Saavutukset:</strong> {a.achievements}
-                    </p>
-                  </>
-                )}
-              </div>
-              <div className="card-footer bg-transparent border-0 text-end">
-                {editId === a.id ? (
-                  <>
-                    <button
-                      className="btn btn-sm btn-success me-2"
-                      onClick={saveEdit}
+                  {a.achievements && (
+                    <ul
+                      className="small mb-3"
+                      style={{ paddingLeft: "1.2rem", textAlign: "left" }}
                     >
-                      Tallenna
-                    </button>
-                    <button
-                      className="btn btn-sm btn-secondary"
-                      onClick={cancelEdit}
-                    >
-                      Peruuta
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <button
-                      className="btn btn-sm btn-primary gap-2"
-                      onClick={() => startEdit(a)}
+                      {a.achievements.split(";").map((ach, i) => (
+                        <li key={i}>{ach.trim()}</li>
+                      ))}
+                    </ul>
+                  )}
+
+                  <div className="d-flex justify-content-end gap-2">
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => openEditModal(a)}
                     >
                       Muokkaa
-                    </button>
-                    <button
-                      className="btn btn-sm btn-outline-danger"
-                      onClick={() => deleteAthlete(a.id)}
+                    </Button>
+                    <Button
+                      variant="outline-danger"
+                      size="sm"
+                      onClick={() => handleDelete(a.id)}
                     >
                       Poista
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </>
+                    </Button>
+                  </div>
+                </Card.Body>
+              </Card>
+            </Col>
+          ))}
+        </Row>
+      )}
+
+      {/* 🧾 Modaalinen muokkaus */}
+      <AthleteEditModal
+        show={showModal}
+        onHide={closeEditModal}
+        athlete={selectedAthlete}
+      />
+
+      {/* 💅 Hover-efekti tyylit */}
+      <style>
+        {`
+          .hover-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+          }
+        `}
+      </style>
+    </div>
   );
-}
+};
+
+export default AthleteList;
