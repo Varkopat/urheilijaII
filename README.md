@@ -1,4 +1,4 @@
-## Urheilija II
+# Urheilija II
 
 JavaScript-palvelinsovellus, joka tarjoaa REST-rajapinnan kautta tiedon urheilijoista.
 
